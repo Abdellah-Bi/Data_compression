@@ -8,13 +8,11 @@ def load_seed_dictionary_for_decoder(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         patterns = json.load(f)
     
-    # Initialize dictionary with single-byte symbols.
     dictionary = {i: bytes([i]) for i in range(ASCII_CODE_COUNT)}
 
     if len(patterns) > MAX_CODE_COUNT - ASCII_CODE_COUNT:
         raise ValueError("Seed dictionary is too large for the 12-bit code space.")
     
-    # Add mined patterns immediately after the ASCII range.
     for idx, pattern in enumerate(patterns, start=ASCII_CODE_COUNT):
         dictionary[idx] = pattern.encode("utf-8")
         
@@ -23,7 +21,7 @@ def load_seed_dictionary_for_decoder(file_path):
 def decompress(input_file, output_file, seed_file):
     dictionary = load_seed_dictionary_for_decoder(seed_file)
     next_code = len(dictionary)
-    bit_width = 12 # Must match encoder exactly
+    bit_width = 12
     
     reader = BitReader(input_file)
     
@@ -61,6 +59,5 @@ def decompress(input_file, output_file, seed_file):
     reader.close()
     print(f"Decompression complete. Reconstructed: {output_file}")
 
-# --- EXECUTION BLOCK ---
 if __name__ == "__main__":
     decompress("setup.lzw", "restored_setup.py", "seed_dictionary.json")
