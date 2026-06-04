@@ -1,23 +1,28 @@
 import json
 from bit_io import BitReader
 
+MAX_CODE_COUNT = 4096
+ASCII_CODE_COUNT = 256
+
 def load_seed_dictionary_for_decoder(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         patterns = json.load(f)
     
-    # Initialize dictionary with ASCII (0-255)
-    # Decoder mapping: Index -> String
-    dictionary = {i: chr(i) for i in range(256)}
+    # Initialize dictionary with single-byte symbols.
+    dictionary = {i: bytes([i]) for i in range(ASCII_CODE_COUNT)}
+
+    if len(patterns) > MAX_CODE_COUNT - ASCII_CODE_COUNT:
+        raise ValueError("Seed dictionary is too large for the 12-bit code space.")
     
-    # Add our mined patterns (256-1023)
-    for idx, pattern in enumerate(patterns, start=256):
-        dictionary[idx] = pattern
+    # Add mined patterns immediately after the ASCII range.
+    for idx, pattern in enumerate(patterns, start=ASCII_CODE_COUNT):
+        dictionary[idx] = pattern.encode("utf-8")
         
     return dictionary
 
 def decompress(input_file, output_file, seed_file):
     dictionary = load_seed_dictionary_for_decoder(seed_file)
-    next_code = 1024
+    next_code = len(dictionary)
     bit_width = 12 # Must match encoder exactly
     
     reader = BitReader(input_file)
@@ -38,20 +43,20 @@ def decompress(input_file, output_file, seed_file):
         if code in dictionary:
             entry = dictionary[code]
         elif code == next_code:
-            entry = current_string + current_string[0]
+            entry = current_string + current_string[:1]
         else:
             raise ValueError(f"Sync Error: Code {code} not in dict. Dict size: {next_code}")
 
         result.append(entry)
 
-        if next_code < 4096:
-            dictionary[next_code] = current_string + entry[0]
+        if next_code < MAX_CODE_COUNT:
+            dictionary[next_code] = current_string + entry[:1]
             next_code += 1
                 
         current_string = entry
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write("".join(result))
+    with open(output_file, 'wb') as f:
+        f.write(b"".join(result))
     
     reader.close()
     print(f"Decompression complete. Reconstructed: {output_file}")
